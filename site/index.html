@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dedupe: pipe noisy logs in, get signal out</title>
+<meta name="description" content="dedupe is a tiny Go CLI that collapses repeated and near-duplicate log lines in a live stream. tail -f app.log | dedupe">
+<meta name="theme-color" content="#07080a">
+<meta property="og:title" content="dedupe: pipe noisy logs in, get signal out">
+<meta property="og:description" content="Collapse repeated and near-duplicate log lines in a live stream. Like alert deduplication, for your terminal.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307080a'/%3E%3Cpath d='M10 10l12 12M22 10L10 22' stroke='%23d6ff3f' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07080a;
+    --fg: #ecebe6;
+    --muted: #8b8e94;
+    --accent: #d6ff3f;
+    --alert: #ff5533;
+    --line: #1c1e23;
+    --panel: #0d0f12;
+    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --serif: "Instrument Serif", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  body::before { /* faint top glow */
+    content: "";
+    position: fixed; inset: -20vh -10vw auto;
+    height: 60vh;
+    background: radial-gradient(50% 60% at 50% 0%, rgba(214,255,63,.07), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  a { color: inherit; }
+  .wrap { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; padding: 0 24px; }
+
+  header.bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 22px 0;
+    font: 500 14px/1 var(--mono);
+  }
+  .crumb { text-decoration: none; letter-spacing: -.01em; }
+  .crumb span { color: var(--muted); }
+  .gh {
+    display: inline-flex; align-items: center; gap: 8px;
+    color: var(--muted); text-decoration: none;
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px;
+    transition: color .15s, border-color .15s;
+  }
+  .gh:hover { color: var(--fg); border-color: #2c2f36; }
+  .gh svg { width: 15px; height: 15px; fill: currentColor; }
+
+  .hero { padding: 72px 0 24px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 10px;
+    font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  h1 {
+    margin: 22px 0 0;
+    font-weight: 600;
+    font-size: clamp(40px, 8.4vw, 76px);
+    line-height: 1.02;
+    letter-spacing: -.035em;
+  }
+  h1 em {
+    font-family: var(--serif); font-style: italic; font-weight: 400;
+    color: var(--accent); letter-spacing: -.01em;
+    padding-right: .04em;
+  }
+  .pitch { max-width: 620px; margin: 26px 0 0; font-size: 18px; color: #c9c8c2; }
+  .pitch code { font: 15px var(--mono); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+
+  .install {
+    margin-top: 34px; max-width: 620px;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px 8px 8px 18px;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .install:hover { border-color: #2c2f36; }
+  .install code {
+    flex: 1; min-width: 0;
+    font: 14px/1.5 var(--mono); color: var(--fg);
+    overflow-wrap: anywhere;
+  }
+  .install code::before { content: "$ "; color: var(--muted); }
+  .copy {
+    flex: none;
+    font: 500 13px/1 var(--mono); color: var(--bg);
+    background: var(--accent); border: 0; border-radius: 8px;
+    padding: 10px 14px; cursor: pointer;
+    transition: transform .1s, background .15s;
+  }
+  .copy:active { transform: scale(.97); }
+  .copy.done { background: var(--fg); }
+  .hint { margin: 10px 0 0 2px; font: 13px var(--mono); color: var(--muted); }
+  .hint a { color: var(--muted); text-underline-offset: 3px; }
+  .hint a:hover { color: var(--fg); }
+
+  .demo { margin: 56px 0 0; }
+  .demo img {
+    display: block; width: 100%; height: auto;
+    border-radius: 12px;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.03), 0 30px 80px -20px rgba(0,0,0,.8), 0 0 120px -40px rgba(214,255,63,.18);
+  }
+  .demo figcaption { margin-top: 12px; font: 13px var(--mono); color: var(--muted); text-align: center; }
+
+  .features {
+    list-style: none; margin: 80px 0 0; padding: 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+  }
+  .features li { background: var(--bg); padding: 26px 24px 28px; }
+  .features b { display: block; font: 500 12px/1 var(--mono); color: var(--accent); letter-spacing: .06em; }
+  .features h3 { margin: 16px 0 8px; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+  .features p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
+  .features code { font: 13px var(--mono); color: var(--fg); }
+
+  .usage { margin: 64px 0 0; }
+  .usage h2 { font-size: 14px; font-weight: 500; font-family: var(--mono); color: var(--muted); margin: 0 0 14px; letter-spacing: .04em; text-transform: uppercase; }
+  .usage pre {
+    margin: 0; padding: 20px 22px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    font: 14px/1.8 var(--mono); color: var(--fg);
+    overflow-x: auto;
+  }
+  .usage .c { color: var(--muted); }
+  .usage .p { color: var(--accent); }
+
+  footer {
+    margin: 96px 0 0; padding: 28px 0 40px;
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    font: 13px var(--mono); color: var(--muted);
+  }
+  footer a { color: var(--fg); text-decoration: none; }
+  footer a:hover { color: var(--accent); }
+
+  @media (max-width: 720px) {
+    .hero { padding-top: 44px; }
+    .features { grid-template-columns: 1fr; }
+    .pitch { font-size: 17px; }
+  }
+  @media (max-width: 480px) {
+    .wrap { padding: 0 16px; }
+    header.bar { font-size: 13px; }
+    .gh .label { display: none; }
+    .install { flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 8px 8px 14px; }
+    .install code { flex-basis: 100%; font-size: 12.5px; }
+    .usage pre { font-size: 12.5px; padding: 16px; }
+    .demo { margin-top: 40px; }
+    .demo img { border-radius: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="bar">
+    <a class="crumb" href="https://github.com/narendraio"><span>narendraio /</span> dedupe</a>
+    <a class="gh" href="https://github.com/narendraio/dedupe" aria-label="dedupe on GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      <span class="label">GitHub</span>
+    </a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow"><i></i>Go CLI · MIT · one binary</div>
+      <h1>Pipe noisy logs in.<br>Get <em>signal</em> out.</h1>
+      <p class="pitch">
+        <code>dedupe</code> collapses repeated and near-duplicate log lines as they stream by.
+        Timestamps, ids, IPs and numbers are ignored, so the 248th <code>db timeout</code> becomes a counter
+        and the one new error stays in view. It's alert deduplication for your terminal.
+      </p>
+
+      <div class="install" role="button" tabindex="0" aria-label="Copy install command" data-copy="go install github.com/narendraio/dedupe@latest">
+        <code>go install github.com/narendraio/dedupe@latest</code>
+        <button class="copy" type="button" tabindex="-1">copy</button>
+      </div>
+      <p class="hint">then: <span style="color:var(--fg)">tail -f app.log | dedupe</span> · <a href="https://github.com/narendraio/dedupe#install">build from source</a></p>
+    </section>
+
+    <figure class="demo">
+      <img src="demo.svg" width="760" height="356" alt="Terminal showing kubectl logs piped into dedupe: repeated errors collapse into lime ×248 counters that update in place">
+    </figure>
+
+    <ul class="features">
+      <li>
+        <b>01</b>
+        <h3>Fingerprints, not string matches</h3>
+        <p>Timestamps, UUIDs, hex ids, IPs and numbers are normalized away, so <code>timeout after 3057ms</code> and <code>after 2998ms</code> are one event.</p>
+      </li>
+      <li>
+        <b>02</b>
+        <h3>Live, without the mess</h3>
+        <p>On a terminal, counters update in place at 20 fps max. In a pipe, you get a clean stream with <code>↳ repeated 247 more times</code> lines.</p>
+      </li>
+      <li>
+        <b>03</b>
+        <h3>Know what's loud</h3>
+        <p><code>--summary</code> prints the top 10 offenders on exit, Ctrl-C included. Point it at a 1M-line file and get a report in seconds.</p>
+      </li>
+    </ul>
+
+    <section class="usage">
+      <h2>Usage</h2>
+<pre><span class="p">$</span> tail -f app.log | dedupe
+<span class="p">$</span> kubectl logs -f deploy/api | dedupe --summary
+<span class="p">$</span> dedupe --no-live --window 10s app.log &gt; quiet.log
+<span class="c"># flags: --window --live-rows --no-live --summary --keep-quotes --color</span></pre>
+    </section>
+  </main>
+
+  <footer>
+    <span>made by <a href="https://github.com/narendraio">Narendra Solanki</a> · part of a tool-a-day series</span>
+    <a href="https://github.com/narendraio/dedupe">github.com/narendraio/dedupe</a>
+  </footer>
+</div>
+
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (box) {
+    var btn = box.querySelector(".copy");
+    function copy() {
+      var text = box.getAttribute("data-copy");
+      function done() {
+        btn.textContent = "copied";
+        btn.classList.add("done");
+        setTimeout(function () { btn.textContent = "copy"; btn.classList.remove("done"); }, 1600);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else { fallback(); }
+      function fallback() {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); done(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    }
+    box.addEventListener("click", copy);
+    box.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); copy(); } });
+  });
+</script>
+</body>
+</html>

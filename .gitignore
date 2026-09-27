@@ -1,0 +1,16 @@
+# build output
+/bin/
+/dist/
+/dedupe
+*.test
+*.out
+coverage.*
+
+# editors & OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# vercel
+.vercel/

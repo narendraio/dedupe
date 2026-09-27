@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="356" viewBox="0 0 760 356" role="img" aria-label="Terminal: kubectl logs piped into dedupe, repeated lines collapsed with live counters">
+  <style>
+    .t { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; fill: #ecebe6; white-space: pre; }
+    .m { fill: #8b8e94; }
+    .a { fill: #d6ff3f; font-weight: 700; }
+    .e { fill: #ff5533; }
+    .p { fill: #d6ff3f; }
+    .d { fill: #5c5f66; }
+  </style>
+  <defs>
+    <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#15171b"/>
+      <stop offset="1" stop-color="#101216"/>
+    </linearGradient>
+  </defs>
+  <rect x="0.5" y="0.5" width="759" height="355" rx="12" fill="#07080a" stroke="#23262c"/>
+  <path d="M12.5 0.5h735a12 12 0 0 1 12 12v23.5H0.5V12.5a12 12 0 0 1 12-12z" fill="url(#bar)"/>
+  <line x1="0.5" y1="36" x2="759.5" y2="36" stroke="#23262c"/>
+  <circle cx="22" cy="18" r="5.5" fill="#2c2f35"/>
+  <circle cx="40" cy="18" r="5.5" fill="#2c2f35"/>
+  <circle cx="58" cy="18" r="5.5" fill="#2c2f35"/>
+  <text x="380" y="22" text-anchor="middle" class="t m" style="font-size:12px">dedupe — zsh</text>
+
+  <text x="24" y="68" class="t"><tspan class="p">❯</tspan> kubectl logs -f deploy/api | dedupe</text>
+
+  <text x="24" y="100" class="t"><tspan class="m">12:04:00.138Z</tspan> INFO  server listening on :8080</text>
+  <text x="24" y="124" class="t"><tspan class="m">12:04:00.960Z</tspan> WARN  cache miss key="user:783" node=10.0.0.67  <tspan class="a">×109</tspan><tspan class="m"> · 1s ago</tspan></text>
+  <text x="24" y="148" class="t"><tspan class="m">12:04:01.740Z</tspan> <tspan class="e">ERROR</tspan> db: query timeout after 3057ms (conn=31)  <tspan class="a">×248</tspan><tspan class="m"> · just now</tspan></text>
+  <text x="24" y="172" class="t"><tspan class="m">12:04:05.583Z</tspan> INFO  healthcheck ok  <tspan class="a">×38</tspan><tspan class="m"> · 4s ago</tspan></text>
+  <text x="24" y="196" class="t"><tspan class="m">12:04:06.912Z</tspan> INFO  GET /api/orders/1352 200 56ms  <tspan class="a">×57</tspan><tspan class="m"> · just now</tspan></text>
+  <text x="24" y="220" class="t"><tspan class="m">12:05:33.831Z</tspan> <tspan class="e">ERROR</tspan> payment provider returned 503 for charge ch_67ee87</text>
+  <text x="24" y="244" class="t"><tspan class="d">▍</tspan></text>
+
+  <line x1="24" y1="270" x2="736" y2="270" stroke="#1b1d22" stroke-dasharray="3 5"/>
+  <text x="24" y="300" class="t"><tspan class="a">dedupe</tspan>  403 lines → 6 groups  <tspan class="m">· 98.5% quieter</tspan></text>
+  <text x="24" y="326" class="t m" style="font-size:12px">new events print once · repeats count up in place · older rows freeze</text>
+</svg>
