@@ -1,263 +1,412 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>dedupe: pipe noisy logs in, get signal out</title>
-<meta name="description" content="dedupe is a tiny Go CLI that collapses repeated and near-duplicate log lines in a live stream. tail -f app.log | dedupe">
-<meta name="theme-color" content="#07080a">
-<meta property="og:title" content="dedupe: pipe noisy logs in, get signal out">
-<meta property="og:description" content="Collapse repeated and near-duplicate log lines in a live stream. Like alert deduplication, for your terminal.">
-<meta property="og:type" content="website">
-<meta name="twitter:card" content="summary">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307080a'/%3E%3Cpath d='M10 10l12 12M22 10L10 22' stroke='%23d6ff3f' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --bg: #07080a;
-    --fg: #ecebe6;
-    --muted: #8b8e94;
-    --accent: #d6ff3f;
-    --alert: #ff5533;
-    --line: #1c1e23;
-    --panel: #0d0f12;
-    --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --serif: "Instrument Serif", Georgia, serif;
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>dedupe — collapse duplicate log lines in your terminal (free Go CLI)</title>
+  <meta name="description" content="dedupe is a free, open-source Go CLI that collapses repeated and near-duplicate log lines in a live stream. tail -f app.log | dedupe — one binary, no config.">
+  <meta name="keywords" content="dedupe, log deduplication, deduplicate log lines, tail -f, kubectl logs, log noise, uniq -c alternative, CLI, Go, terminal, logs">
+  <meta name="author" content="Narendra Solanki">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="theme-color" content="#eeede8">
+  <link rel="canonical" href="https://dedupe.vercel.app/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="dedupe">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:url" content="https://dedupe.vercel.app/">
+  <meta property="og:title" content="dedupe — pipe noisy logs in, get signal out">
+  <meta property="og:description" content="A tiny CLI filter that collapses repeated and near-duplicate log lines in a live stream. The 248th identical db timeout becomes a counter.">
+  <meta property="og:image" content="https://dedupe.vercel.app/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="dedupe: noisy log lines collapsing into grouped rows with ×N counters.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="dedupe — pipe noisy logs in, get signal out">
+  <meta name="twitter:description" content="Collapse repeated and near-duplicate log lines in a live stream. tail -f app.log | dedupe">
+  <meta name="twitter:image" content="https://dedupe.vercel.app/assets/og-image.png">
+  <meta name="twitter:image:alt" content="dedupe: noisy log lines collapsing into grouped rows with ×N counters.">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://dedupe.vercel.app/#app",
+        "name": "dedupe",
+        "description": "A tiny CLI filter that collapses repeated and near-duplicate log lines in a live stream, with live in-place counters on a terminal and a plain, pipe-safe stream everywhere else.",
+        "url": "https://dedupe.vercel.app/",
+        "image": "https://dedupe.vercel.app/assets/og-image.png",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS, Linux, Windows (any platform Go builds for)",
+        "softwareVersion": "1.0",
+        "license": "https://opensource.org/licenses/MIT",
+        "isAccessibleForFree": true,
+        "installUrl": "https://github.com/narendraio/dedupe",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Narendra Solanki", "url": "https://github.com/narendraio" }
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "name": "dedupe source code",
+        "codeRepository": "https://github.com/narendraio/dedupe",
+        "programmingLanguage": "Go",
+        "license": "https://opensource.org/licenses/MIT",
+        "targetProduct": { "@id": "https://dedupe.vercel.app/#app" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          { "@type": "Question", "name": "Will dedupe hide a line I need?", "acceptedAnswer": { "@type": "Answer", "text": "No. The first line of every kind is always printed verbatim. Repeats become a counter on that line (live mode) or a single 'repeated N more times' summary (pipe mode)." } },
+          { "@type": "Question", "name": "Does dedupe understand JSON logs?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. JSON keys are never replaced, and neither are the values of msg, message, error, level, event, reason, status and a few other telling keys, so {\"msg\":\"db timeout\"} and {\"msg\":\"disk full\"} stay apart." } },
+          { "@type": "Question", "name": "Is dedupe safe to use in pipes and CI?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. When stdout is a file or a pipe (or with --no-live) dedupe never rewrites anything; it writes the first line of each group immediately and a summary line once the group has been quiet for --window." } },
+          { "@type": "Question", "name": "How fast is dedupe?", "acceptedAnswer": { "@type": "Answer", "text": "About 150k lines per second on an 8-core laptop. Fingerprinting runs in parallel when input arrives in bulk, while output order stays exact." } }
+        ]
+      }
+    ]
   }
-  * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--fg);
-    font: 16px/1.6 var(--sans);
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
-  body::before { /* faint top glow */
-    content: "";
-    position: fixed; inset: -20vh -10vw auto;
-    height: 60vh;
-    background: radial-gradient(50% 60% at 50% 0%, rgba(214,255,63,.07), transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-  a { color: inherit; }
-  .wrap { position: relative; z-index: 1; max-width: 880px; margin: 0 auto; padding: 0 24px; }
-
-  header.bar {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    padding: 22px 0;
-    font: 500 14px/1 var(--mono);
-  }
-  .crumb { text-decoration: none; letter-spacing: -.01em; }
-  .crumb span { color: var(--muted); }
-  .gh {
-    display: inline-flex; align-items: center; gap: 8px;
-    color: var(--muted); text-decoration: none;
-    padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px;
-    transition: color .15s, border-color .15s;
-  }
-  .gh:hover { color: var(--fg); border-color: #2c2f36; }
-  .gh svg { width: 15px; height: 15px; fill: currentColor; }
-
-  .hero { padding: 72px 0 24px; }
-  .eyebrow {
-    display: inline-flex; align-items: center; gap: 10px;
-    font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
-    color: var(--muted);
-  }
-  .eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-  h1 {
-    margin: 22px 0 0;
-    font-weight: 600;
-    font-size: clamp(40px, 8.4vw, 76px);
-    line-height: 1.02;
-    letter-spacing: -.035em;
-  }
-  h1 em {
-    font-family: var(--serif); font-style: italic; font-weight: 400;
-    color: var(--accent); letter-spacing: -.01em;
-    padding-right: .04em;
-  }
-  .pitch { max-width: 620px; margin: 26px 0 0; font-size: 18px; color: #c9c8c2; }
-  .pitch code { font: 15px var(--mono); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
-
-  .install {
-    margin-top: 34px; max-width: 620px;
-    display: flex; align-items: center; gap: 12px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    padding: 8px 8px 8px 18px;
-    cursor: pointer;
-    transition: border-color .15s;
-  }
-  .install:hover { border-color: #2c2f36; }
-  .install code {
-    flex: 1; min-width: 0;
-    font: 14px/1.5 var(--mono); color: var(--fg);
-    overflow-wrap: anywhere;
-  }
-  .install code::before { content: "$ "; color: var(--muted); }
-  .copy {
-    flex: none;
-    font: 500 13px/1 var(--mono); color: var(--bg);
-    background: var(--accent); border: 0; border-radius: 8px;
-    padding: 10px 14px; cursor: pointer;
-    transition: transform .1s, background .15s;
-  }
-  .copy:active { transform: scale(.97); }
-  .copy.done { background: var(--fg); }
-  .hint { margin: 10px 0 0 2px; font: 13px var(--mono); color: var(--muted); }
-  .hint a { color: var(--muted); text-underline-offset: 3px; }
-  .hint a:hover { color: var(--fg); }
-
-  .demo { margin: 56px 0 0; }
-  .demo img {
-    display: block; width: 100%; height: auto;
-    border-radius: 12px;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.03), 0 30px 80px -20px rgba(0,0,0,.8), 0 0 120px -40px rgba(214,255,63,.18);
-  }
-  .demo figcaption { margin-top: 12px; font: 13px var(--mono); color: var(--muted); text-align: center; }
-
-  .features {
-    list-style: none; margin: 80px 0 0; padding: 0;
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
-    background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
-  }
-  .features li { background: var(--bg); padding: 26px 24px 28px; }
-  .features b { display: block; font: 500 12px/1 var(--mono); color: var(--accent); letter-spacing: .06em; }
-  .features h3 { margin: 16px 0 8px; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
-  .features p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
-  .features code { font: 13px var(--mono); color: var(--fg); }
-
-  .usage { margin: 64px 0 0; }
-  .usage h2 { font-size: 14px; font-weight: 500; font-family: var(--mono); color: var(--muted); margin: 0 0 14px; letter-spacing: .04em; text-transform: uppercase; }
-  .usage pre {
-    margin: 0; padding: 20px 22px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    font: 14px/1.8 var(--mono); color: var(--fg);
-    overflow-x: auto;
-  }
-  .usage .c { color: var(--muted); }
-  .usage .p { color: var(--accent); }
-
-  footer {
-    margin: 96px 0 0; padding: 28px 0 40px;
-    border-top: 1px solid var(--line);
-    display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    font: 13px var(--mono); color: var(--muted);
-  }
-  footer a { color: var(--fg); text-decoration: none; }
-  footer a:hover { color: var(--accent); }
-
-  @media (max-width: 720px) {
-    .hero { padding-top: 44px; }
-    .features { grid-template-columns: 1fr; }
-    .pitch { font-size: 17px; }
-  }
-  @media (max-width: 480px) {
-    .wrap { padding: 0 16px; }
-    header.bar { font-size: 13px; }
-    .gh .label { display: none; }
-    .install { flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 12px 8px 8px 14px; }
-    .install code { flex-basis: 100%; font-size: 12.5px; }
-    .usage pre { font-size: 12.5px; padding: 16px; }
-    .demo { margin-top: 40px; }
-    .demo img { border-radius: 8px; }
-  }
-</style>
+  </script>
 </head>
 <body>
-<div class="wrap">
-  <header class="bar">
-    <a class="crumb" href="https://github.com/narendraio"><span>narendraio /</span> dedupe</a>
-    <a class="gh" href="https://github.com/narendraio/dedupe" aria-label="dedupe on GitHub">
-      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      <span class="label">GitHub</span>
-    </a>
-  </header>
+<a class="skip" href="#top">Skip to content</a>
 
-  <main>
-    <section class="hero">
-      <div class="eyebrow"><i></i>Go CLI · MIT · one binary</div>
-      <h1>Pipe noisy logs in.<br>Get <em>signal</em> out.</h1>
-      <p class="pitch">
-        <code>dedupe</code> collapses repeated and near-duplicate log lines as they stream by.
-        Timestamps, ids, IPs and numbers are ignored, so the 248th <code>db timeout</code> becomes a counter
-        and the one new error stays in view. It's alert deduplication for your terminal.
-      </p>
+<header class="bar">
+  <a class="bar-brand" href="#top" aria-label="dedupe, back to top"><img src="assets/logo.svg" alt="" width="24" height="24"><span>dedupe</span></a>
+  <span class="bar-mid mono">log deduplication for your terminal <i>/</i> v1.0 <i>/</i> free &amp; open source <i>/</i> dedupe.vercel.app</span>
+  <nav class="bar-nav mono" aria-label="Sections">
+    <a href="#try">try it</a>
+    <a href="#rules">rules</a>
+    <a href="#flags">flags</a>
+    <a href="https://github.com/narendraio/dedupe" target="_blank" rel="noopener">github ↗</a>
+    <a class="bar-cta" href="#install">install ↓</a>
+  </nav>
+</header>
 
-      <div class="install" role="button" tabindex="0" aria-label="Copy install command" data-copy="go install github.com/narendraio/dedupe@latest">
-        <code>go install github.com/narendraio/dedupe@latest</code>
-        <button class="copy" type="button" tabindex="-1">copy</button>
+<main id="top">
+
+  <!-- 00 · hero -->
+  <section class="hero grid">
+    <div class="hero-text">
+      <p class="label mono"><span class="num">00</span> index</p>
+      <ol class="toc mono">
+        <li><a href="#what"><span>01</span>what it does<i></i><em>p. 2</em></a></li>
+        <li><a href="#try"><span>02</span>try it — your own log<i></i><em>p. 3</em></a></li>
+        <li><a href="#rules"><span>03</span>fingerprints<i></i><em>p. 4</em></a></li>
+        <li><a href="#flags"><span>04</span>flags<i></i><em>p. 5</em></a></li>
+        <li><a href="#how"><span>05</span>how it works<i></i><em>p. 6</em></a></li>
+        <li><a href="#install"><span>06</span>install<i></i><em>p. 7</em></a></li>
+        <li><a href="#faq"><span>07</span>questions<i></i><em>p. 8</em></a></li>
+      </ol>
+      <h1 class="hero-title"><span class="ln">Noisy logs in.</span><span class="ln">Signal <em>out.</em></span></h1>
+      <p class="hero-sub"><b>dedupe</b> is a tiny CLI filter that collapses repeated and near-duplicate log lines in a live stream. The 248th identical <code>db timeout</code> becomes a counter, and the one line that matters stays on screen.</p>
+      <div class="hero-cta">
+        <a class="btn btn-ink mono" href="#install">go install <span>↓</span></a>
+        <a class="btn btn-line mono" href="https://github.com/narendraio/dedupe" target="_blank" rel="noopener">read the source <span>↗</span></a>
       </div>
-      <p class="hint">then: <span style="color:var(--fg)">tail -f app.log | dedupe</span> · <a href="https://github.com/narendraio/dedupe#install">build from source</a></p>
-    </section>
+    </div>
 
-    <figure class="demo">
-      <img src="demo.svg" width="760" height="356" alt="Terminal showing kubectl logs piped into dedupe: repeated errors collapse into lime ×248 counters that update in place">
+    <figure class="hero-fig" aria-label="Animation: a noisy log stream flowing into dedupe and collapsing into grouped rows with counters">
+      <div class="stream" aria-hidden="true">
+        <div class="st-head mono"><span><b class="dot"></b> stdin</span><span class="st-rate">0 lines</span></div>
+        <div class="st-in"><div class="st-in-track"></div></div>
+        <div class="st-pipe mono"><span>| dedupe</span></div>
+        <div class="st-head mono"><span>stdout · live</span><span class="st-groups">0 groups</span></div>
+        <div class="st-out"></div>
+        <div class="st-meter mono"><span class="st-sum">0 lines → 0 groups</span><b class="st-q">0% quieter</b></div>
+      </div>
+      <figcaption class="mono"><span>fig. 01</span> <code>tail -f app.log | dedupe</code> <button class="fig-btn" type="button" aria-pressed="false">pause</button></figcaption>
+      <span class="corner c-tl"></span><span class="corner c-tr"></span><span class="corner c-bl"></span><span class="corner c-br"></span>
     </figure>
 
-    <ul class="features">
-      <li>
-        <b>01</b>
-        <h3>Fingerprints, not string matches</h3>
-        <p>Timestamps, UUIDs, hex ids, IPs and numbers are normalized away, so <code>timeout after 3057ms</code> and <code>after 2998ms</code> are one event.</p>
-      </li>
-      <li>
-        <b>02</b>
-        <h3>Live, without the mess</h3>
-        <p>On a terminal, counters update in place at 20 fps max. In a pipe, you get a clean stream with <code>↳ repeated 247 more times</code> lines.</p>
-      </li>
-      <li>
-        <b>03</b>
-        <h3>Know what's loud</h3>
-        <p><code>--summary</code> prints the top 10 offenders on exit, Ctrl-C included. Point it at a 1M-line file and get a report in seconds.</p>
-      </li>
+    <dl class="specs">
+      <div><dt class="mono">throughput</dt><dd><b data-count="150">150</b>k lines/s, 8 cores</dd></div>
+      <div><dt class="mono">install</dt><dd><b data-count="1">1</b> static binary</dd></div>
+      <div><dt class="mono">config</dt><dd><b data-count="0">0</b> files, no daemon</dd></div>
+      <div><dt class="mono">redraws</dt><dd><b data-count="20">20</b> fps cap, max</dd></div>
+    </dl>
+  </section>
+
+  <!-- 01 · what -->
+  <section class="sec" id="what">
+    <header class="sec-head grid">
+      <p class="label mono"><span class="num">01</span> what it does</p>
+      <h2 class="sec-title">Every kind of line, once.</h2>
+      <p class="sec-note">Timestamps, ids, IPs and numbers change on every line. dedupe masks them, and lines that are left looking the same become one row with a counter.</p>
+    </header>
+    <div class="ba grid">
+      <div class="ba-col">
+        <p class="tag mono"><span>before — <code>kubectl logs -f deploy/api</code></span><span>14 lines</span></p>
+        <pre class="ba-pre mono">2026-09-27T12:04:00Z INFO  server listening on :8080
+2026-09-27T12:04:01Z ERROR db: query timeout after 3057ms (conn=31)
+2026-09-27T12:04:01Z ERROR db: query timeout after 3061ms (conn=12)
+2026-09-27T12:04:02Z INFO  healthcheck ok
+2026-09-27T12:04:02Z ERROR db: query timeout after 3049ms (conn=31)
+2026-09-27T12:04:03Z ERROR db: query timeout after 3102ms (conn=7)
+2026-09-27T12:04:04Z INFO  healthcheck ok
+2026-09-27T12:04:04Z ERROR db: query timeout after 3057ms (conn=44)
+2026-09-27T12:04:05Z ERROR db: query timeout after 3088ms (conn=31)
+2026-09-27T12:04:05Z INFO  healthcheck ok
+2026-09-27T12:04:06Z ERROR db: query timeout after 3070ms (conn=12)
+<mark>2026-09-27T12:04:06Z ERROR payment provider returned 503 for charge ch_67ee87</mark>
+2026-09-27T12:04:06Z INFO  healthcheck ok
+2026-09-27T12:04:07Z ERROR db: query timeout after 3049ms (conn=9)</pre>
+      </div>
+      <div class="ba-col ba-after">
+        <p class="tag mono"><span>after — <code>… | dedupe</code></span><span>4 lines</span></p>
+        <pre class="ba-pre mono">2026-09-27T12:04:00Z INFO  server listening on :8080
+2026-09-27T12:04:01Z ERROR db: query timeout after 3057ms (conn=31)  <b class="x">×8</b> <i>· just now</i>
+2026-09-27T12:04:02Z INFO  healthcheck ok  <b class="x">×4</b> <i>· 1s ago</i>
+<mark>2026-09-27T12:04:06Z ERROR payment provider returned 503 for charge ch_67ee87</mark></pre>
+        <p class="ba-note mono">the one that matters, still on screen ↑</p>
+      </div>
+    </div>
+    <div class="cols grid">
+      <div class="col">
+        <h3 class="mono">near-duplicates, caught</h3>
+        <p>Not just identical lines. <code>timeout after 3057ms</code> and <code>timeout after 3102ms</code> are the same event, so they’re one group.</p>
+      </div>
+      <div class="col">
+        <h3 class="mono">live, in place</h3>
+        <p>On a terminal, repeats bump a <b class="x">×248</b> badge and a “last seen” label on the existing row instead of scrolling it away.</p>
+      </div>
+      <div class="col">
+        <h3 class="mono">safe in pipes</h3>
+        <p>Redirect to a file or pipe into <code>grep</code> and it switches to a plain stream that never rewrites a byte.</p>
+      </div>
+    </div>
+    <div class="recipes">
+      <p class="tag mono"><span>recipes</span><span>works with anything that prints lines</span></p>
+      <ul class="rec-list mono">
+        <li><code>tail -f app.log | dedupe</code><span>live, in-place counters</span></li>
+        <li><code>kubectl logs -f deploy/api | dedupe</code><span>same thing, for pods</span></li>
+        <li><code>dedupe app.log</code><span>read files directly</span></li>
+        <li><code>dedupe --summary app.log &gt; /dev/null</code><span>just tell me what’s loud</span></li>
+        <li><code>docker compose logs -f | dedupe --no-live</code><span>plain stream, safe for pipes</span></li>
+        <li><code>journalctl -f | dedupe --window 30s &gt; quiet.log</code><span>a quieter log file</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 02 · try -->
+  <section class="sec" id="try">
+    <header class="sec-head grid">
+      <p class="label mono"><span class="num">02</span> try it</p>
+      <h2 class="sec-title">Paste your worst log.</h2>
+      <p class="sec-note">The fingerprint rules below are a line-for-line port of dedupe’s Go code, running in your browser. Nothing is uploaded. Hover a group to see what got masked.</p>
+    </header>
+    <div class="try grid">
+      <div class="try-in">
+        <div class="tag mono try-tools">
+          <span>input</span>
+          <span class="samples" role="group" aria-label="Load a sample log">
+            load sample:
+            <button type="button" data-sample="nginx">nginx</button>
+            <button type="button" data-sample="k8s" aria-pressed="true">k8s</button>
+            <button type="button" data-sample="json">json app</button>
+            <button type="button" data-sample="">clear</button>
+          </span>
+        </div>
+        <label class="sr-only" for="pad">Log lines to deduplicate</label>
+        <textarea id="pad" class="pad mono" spellcheck="false" autocomplete="off" wrap="off" placeholder="paste log lines here…"></textarea>
+        <label class="kq mono"><input type="checkbox" id="keepq"> <span><code>--keep-quotes</code> treat every quoted string as significant</span></label>
+      </div>
+      <div class="try-out">
+        <div class="tag mono try-tabs">
+          <span role="tablist" aria-label="Output mode">
+            <button type="button" role="tab" data-mode="live" aria-selected="true">live</button>
+            <button type="button" role="tab" data-mode="pipe" aria-selected="false">--no-live</button>
+            <button type="button" role="tab" data-mode="summary" aria-selected="false">--summary</button>
+          </span>
+          <span class="out-hint">hover a row → fingerprint</span>
+        </div>
+        <div class="meter" aria-live="polite">
+          <p class="meter-text"><b class="m-lines">0</b> lines <span class="arr">→</span> <b class="m-groups">0</b> groups <span class="m-q">· 0% quieter</span></p>
+          <div class="meter-bar" aria-hidden="true"><i></i></div>
+        </div>
+        <div class="out mono" role="tabpanel" tabindex="0" aria-label="dedupe output"></div>
+        <p class="legend mono" aria-hidden="true"><span class="tok" data-k="ts">&lt;ts&gt;</span><span class="tok" data-k="uuid">&lt;uuid&gt;</span><span class="tok" data-k="ip">&lt;ip&gt;</span><span class="tok" data-k="hex">&lt;hex&gt;</span><span class="tok" data-k="num">#</span><span class="tok" data-k="str">"…"</span> masked tokens</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 · rules -->
+  <section class="sec" id="rules">
+    <header class="sec-head grid">
+      <p class="label mono"><span class="num">03</span> fingerprints</p>
+      <h2 class="sec-title">Mask what changes. Keep what matters.</h2>
+      <p class="sec-note">Every line is reduced to a fingerprint. Lines that share one are the same event. Examples straight from the test suite.</p>
+    </header>
+    <div class="table rules">
+      <div class="tr th mono"><span>token</span><span>in</span><span>fingerprint</span></div>
+      <div class="tr"><span class="mono act">timestamps<small>ISO-8601, RFC 3339, CLF, syslog, klog, Go <code>log</code>, epoch s/ms/µs/ns</small></span><pre>2026-09-27T12:04:31.123Z ERROR db timeout after 30s</pre><pre class="out"><i>&lt;ts&gt;</i> ERROR db timeout after <i>#</i>s</pre></div>
+      <div class="tr"><span class="mono act">common log format</span><pre>10.0.3.7 - - [27/Sep/2026:12:04:36 +0000] "GET /health HTTP/1.1" 200 2</pre><pre class="out"><i>&lt;ip&gt;</i> - - [<i>&lt;ts&gt;</i>] "GET /health HTTP/<i>#</i>" <i>#</i> <i>#</i></pre></div>
+      <div class="tr"><span class="mono act">klog</span><pre>E0927 12:04:31.123456   12345 reflector.go:138] watch of *v1.Pod ended</pre><pre class="out"><i>&lt;ts&gt;</i> <i>#</i> reflector.go:<i>#</i>] watch of *v<i>#</i>.Pod ended</pre></div>
+      <div class="tr"><span class="mono act">uuids</span><pre>request 3fa85f64-5717-4562-b3fc-2c963f66afa6 completed</pre><pre class="out">request <i>&lt;uuid&gt;</i> completed</pre></div>
+      <div class="tr"><span class="mono act">ipv4 / ipv6<small>with port or CIDR</small></span><pre>dial tcp 10.0.0.12:5432: connect: connection refused
+listening on [::1]:8080</pre><pre class="out">dial tcp <i>&lt;ip&gt;</i>: connect: connection refused
+listening on <i>&lt;ip&gt;</i></pre></div>
+      <div class="tr"><span class="mono act">hex ids<small>8+ chars with a letter, or <code>0x…</code></small></span><pre>deployed commit 9fceb02d0ae598e95dc970b74767f19372d61af8
+panic: nil deref at 0xc000123abc</pre><pre class="out">deployed commit <i>&lt;hex&gt;</i>
+panic: nil deref at <i>&lt;hex&gt;</i></pre></div>
+      <div class="tr"><span class="mono act">numbers</span><pre>took 123.45ms, 3 retries, user42</pre><pre class="out">took <i>#</i>ms, <i>#</i> retries, user<i>#</i></pre></div>
+      <div class="tr"><span class="mono act">quoted values</span><pre>cannot open 'config.yaml' for user "alice"</pre><pre class="out">cannot open <i>"…"</i> for user <i>"…"</i></pre></div>
+      <div class="tr tr-sub mono"><span>…and what it leaves alone</span><span>so different events stay apart</span></div>
+      <div class="tr"><span class="mono act">json keys &amp; telling values<small><code>msg</code> <code>message</code> <code>error</code> <code>level</code> <code>event</code> <code>reason</code> <code>status</code> …</small></span><pre>{"level":"error","msg":"db timeout","user":"bob","latency_ms":120}</pre><pre class="out">{"level":"error","msg":"db timeout","user":<i>"…"</i>,"latency_ms":<i>#</i>}</pre></div>
+      <div class="tr"><span class="mono act">logfmt</span><pre>level=warn msg="slow query" query="SELECT 1" dur=2.1s</pre><pre class="out">level=warn msg="slow query" query=<i>"…"</i> dur=<i>#</i>s</pre></div>
+      <div class="tr"><span class="mono act">prose in quotes</span><pre>I0927 12:04:31.000001  1 controller.go:116] "Observed a panic" pod="default/api-7d9f8b6c5-x2kqp"</pre><pre class="out"><i>&lt;ts&gt;</i> <i>#</i> controller.go:<i>#</i>] "Observed a panic" pod=<i>"…"</i></pre></div>
+      <div class="tr"><span class="mono act">apostrophes, code, short hex</span><pre>can't connect, won't retry
+thread panicked at std::io::Error
+cafe added bead</pre><pre class="out">can't connect, won't retry
+thread panicked at std::io::Error
+cafe added bead</pre></div>
+    </div>
+  </section>
+
+  <!-- 04 · flags -->
+  <section class="sec" id="flags">
+    <header class="sec-head grid">
+      <p class="label mono"><span class="num">04</span> flags</p>
+      <h2 class="sec-title">Seven flags. Zero config.</h2>
+      <p class="sec-note">Flags can go before or after file names. Use <code>-</code> as a file name to read stdin.</p>
+    </header>
+    <div class="table flags">
+      <div class="tr th mono"><span>flag</span><span>default</span><span>what it does</span></div>
+      <div class="tr"><span class="mono act">--window</span><span class="mono dft">5s</span><p>Pipe mode: a group ends, and its <code>↳ repeated N more times</code> line is written, after this long without repeats.</p></div>
+      <div class="tr"><span class="mono act">--live-rows</span><span class="mono dft">20</span><p>Live mode: how many recent groups keep updating in place. Capped to your terminal height.</p></div>
+      <div class="tr"><span class="mono act">--no-live</span><span class="mono dft">false</span><p>Never redraw in place. Print a plain stream even on a terminal.</p></div>
+      <div class="tr"><span class="mono act">--summary</span><span class="mono dft">false</span><p>At exit (EOF or Ctrl-C), print the top 10 groups to stderr.</p></div>
+      <div class="tr"><span class="mono act">--keep-quotes</span><span class="mono dft">false</span><p>Don’t replace quoted strings with <code>"…"</code>.</p></div>
+      <div class="tr"><span class="mono act">--color</span><span class="mono dft">auto</span><p><code>auto</code>, <code>always</code> or <code>never</code>. <code>auto</code> respects <code>NO_COLOR</code> and <code>TERM=dumb</code>.</p></div>
+      <div class="tr"><span class="mono act">--version</span><span class="mono dft">—</span><p>Print the version and exit.</p></div>
+    </div>
+    <div class="exits mono">
+      <span>exit codes</span>
+      <span><b>0</b> ok</span><span><b>1</b> I/O error</span><span><b>2</b> bad flags</span><span><b>130</b> interrupted</span>
+    </div>
+  </section>
+
+  <!-- 05 · how -->
+  <section class="sec" id="how">
+    <header class="sec-head grid">
+      <p class="label mono"><span class="num">05</span> how it works</p>
+      <h2 class="sec-title">Two modes. It picks.</h2>
+      <p class="sec-note">If stdout is a terminal you get live counters. If it’s a file or a pipe, you get a plain stream. <code>--no-live</code> forces the plain one.</p>
+    </header>
+    <ol class="flow mono" aria-label="Pipeline">
+      <li><span>01</span><b>read</b><em>any line length, any encoding</em></li>
+      <li><span>02</span><b>fingerprint</b><em>parallel across cores</em></li>
+      <li><span>03</span><b>group</b><em>same fingerprint, same row</em></li>
+      <li><span>04</span><b>render</b><em>live, or pipe</em></li>
+    </ol>
+    <div class="modes grid">
+      <div class="mode">
+        <p class="tag mono"><span>live mode</span><span>stdout is a terminal</span></p>
+        <p class="mode-p">Every <b>new</b> kind of line prints once. A repeat bumps the existing row’s <b class="x">×N</b> badge and its “last seen” label, in place. The newest 20 groups stay live; older rows freeze with their final count and scroll up like normal output.</p>
+        <pre class="term mono">2026-09-27T12:04:00Z INFO  server listening on :8080
+2026-09-27T12:04:01Z ERROR db: query timeout after 3057ms (conn=31)  <b class="x">×248</b> <i>· just now</i>
+2026-09-27T12:04:05Z INFO  healthcheck ok  <b class="x">×38</b> <i>· 4s ago</i>
+2026-09-27T12:05:33Z ERROR payment provider returned 503 for charge ch_67ee87</pre>
+      </div>
+      <div class="mode">
+        <p class="tag mono"><span>pipe mode</span><span>file, pipe, or <code>--no-live</code></span></p>
+        <p class="mode-p">Nothing is ever rewritten. The first line of a group is written immediately. Once the group has been quiet for <code>--window</code>, or at end of input, one summary line follows.</p>
+        <pre class="term mono">2026-09-27T12:04:01Z ERROR db: query timeout after 3057ms (conn=31)
+2026-09-27T12:04:05Z INFO  healthcheck ok
+<i>  ↳</i> repeated <b class="x">247</b> more times <i>(last 12:04:31) · 2026-09-27T12:04:01Z ERROR db: query timeout…</i>
+<i>  ↳</i> repeated <b class="x">37</b> more times <i>(last 12:04:36) · 2026-09-27T12:04:05Z INFO  healthcheck ok</i>
+2026-09-27T12:05:33Z ERROR payment provider returned 503 for charge ch_67ee87
+2026-09-27T12:05:33Z WARN  retrying charge in 2s
+<i>  ↳</i> repeated <b class="x">4</b> more times <i>(last 12:05:41)</i></pre>
+      </div>
+    </div>
+    <dl class="sheet mono">
+      <div><dt>fingerprint</dt><dd>volatile tokens → placeholders (<code>&lt;ts&gt;</code> <code>&lt;uuid&gt;</code> <code>&lt;ip&gt;</code> <code>&lt;hex&gt;</code> <code>#</code> <code>"…"</code>), ANSI colors removed, whitespace squashed</dd></div>
+      <div><dt>--window</dt><dd>wall-clock time between arrivals, not the timestamps inside your lines</dd></div>
+      <div><dt>redraws</dt><dd>capped at 20 fps, so a firehose won’t shred your terminal</dd></div>
+      <div><dt>long lines</dt><dd>no length limit to read; anything past 256 KiB is trimmed with a <code>…[+N bytes]</code> marker</dd></div>
+      <div><dt>encoding</dt><dd>invalid UTF-8 is tolerated</dd></div>
+      <div><dt>speed</dt><dd>~150k lines/s on an 8-core laptop; parallel fingerprinting for bulk input, output order stays exact</dd></div>
+      <div><dt>memory</dt><dd>bounded, even on endless streams of unique lines</dd></div>
+      <div><dt>multi-line</dt><dd>lines, not records — stack traces collapse frame by frame</dd></div>
+    </dl>
+  </section>
+
+  <!-- 06 · install -->
+  <section class="sec" id="install">
+    <header class="sec-head grid">
+      <p class="label mono"><span class="num">06</span> install</p>
+      <h2 class="sec-title">One line. One binary.</h2>
+    </header>
+    <div class="install grid">
+      <div class="cmd mono">
+        <p><span class="pr">$</span> <span class="copy-src">go install github.com/narendraio/dedupe@latest</span></p>
+        <p><span class="pr">$</span> tail -f app.log | dedupe</p>
+        <p class="ok">→ the 248th db timeout is now a counter.</p>
+        <button class="copy-cmd mono" type="button" aria-label="Copy install command">copy</button>
+      </div>
+      <div class="install-alt">
+        <p class="mono alt-h">or build from source</p>
+        <pre class="src mono">git clone https://github.com/narendraio/dedupe
+cd dedupe
+make build     <i># -&gt; ./bin/dedupe</i>
+make install   <i># -&gt; $(go env GOPATH)/bin/dedupe</i></pre>
+        <p>One static binary, no config and no daemon. Needs Go 1.23+ to build. <a href="https://github.com/narendraio/dedupe" target="_blank" rel="noopener">Source on GitHub ↗</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 · faq -->
+  <section class="sec" id="faq">
+    <header class="sec-head grid">
+      <p class="label mono"><span class="num">07</span> questions</p>
+      <h2 class="sec-title">Frequently asked.</h2>
+    </header>
+    <dl class="sheet faq">
+      <div><dt>Will dedupe hide a line I need?</dt><dd>No. The first line of every kind is always printed verbatim. Repeats become a counter on that line (live mode) or one “repeated N more times” summary (pipe mode). Nothing is dropped silently.</dd></div>
+      <div><dt>How is this different from <code>sort | uniq -c</code>?</dt><dd><code>uniq</code> only merges identical, adjacent lines, and <code>sort</code> needs the whole input first. dedupe works on a live stream, keeps the original order, and treats lines that differ only in timestamps, ids, IPs or numbers as the same event.</dd></div>
+      <div><dt>Does it understand JSON and logfmt?</dt><dd>Yes. JSON keys are never replaced, and neither are the values of <code>msg</code>, <code>message</code>, <code>error</code>, <code>level</code>, <code>event</code>, <code>reason</code>, <code>status</code> and a few other telling keys. <code>{"msg":"db timeout"}</code> and <code>{"msg":"disk full"}</code> stay apart.</dd></div>
+      <div><dt>Two different errors got merged. Now what?</dt><dd>If the difference lives in a quoted value, pass <code>--keep-quotes</code> to treat every quoted string as significant. Free-standing quoted phrases like <code>"Observed a panic"</code> are already kept.</dd></div>
+      <div><dt>Is it safe in pipes, files and CI?</dt><dd>Yes. When stdout isn’t a terminal (or with <code>--no-live</code>) it never rewrites anything, so <code>grep</code>, files and CI logs see a clean stream.</dd></div>
+      <div><dt>Does <code>--window</code> use the timestamps in my log?</dt><dd>No. Pipe mode uses wall-clock time, so <code>--window</code> is about how fast lines arrive, not the timestamps inside them.</dd></div>
+      <div><dt>What about stack traces?</dt><dd>dedupe compares lines, not multi-line records, so stack traces collapse frame by frame, which is usually what you want anyway.</dd></div>
+      <div><dt>Is it free?</dt><dd>Yes. MIT licensed, one binary, no account, no telemetry. Bugs and ideas are welcome as <a href="https://github.com/narendraio/dedupe/issues" target="_blank" rel="noopener">GitHub issues</a>.</dd></div>
+    </dl>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-big" aria-hidden="true">
+    <span class="fb-word">dedupe</span><span class="fb-x">×<b class="fb-n">1</b></span>
+  </div>
+  <nav class="series mono" aria-label="The tool-a-day series">
+    <span class="series-h">part of a tool-a-day series by <a href="https://github.com/narendraio" target="_blank" rel="noopener">Narendra Solanki</a></span>
+    <ul>
+      <li><a href="https://github.com/narendraio/dedupe" aria-current="page">dedupe</a></li>
+      <li><a href="https://github.com/narendraio/pagerbeep">pagerbeep</a></li>
+      <li><a href="https://github.com/narendraio/portsh">portsh</a></li>
+      <li><a href="https://github.com/narendraio/git-wrapped">git-wrapped</a></li>
+      <li><a href="https://github.com/narendraio/cronsense">cronsense</a></li>
+      <li><a href="https://github.com/narendraio/deskpulse">deskpulse</a></li>
+      <li><a href="https://github.com/narendraio/typo-guard">typo-guard</a></li>
+      <li><a href="https://github.com/narendraio/airtype">airtype</a></li>
+      <li><a href="https://github.com/narendraio/claude-cost">claude-cost</a></li>
+      <li><a href="https://github.com/narendraio/incidentfm">incidentfm</a></li>
     </ul>
+  </nav>
+  <div class="foot-row mono">
+    <span>dedupe — pipe noisy logs in, get signal out</span>
+    <span><a href="https://github.com/narendraio/dedupe" target="_blank" rel="noopener">github</a> / <a href="https://github.com/narendraio/dedupe/issues" target="_blank" rel="noopener">issues</a> / <a href="https://github.com/narendraio" target="_blank" rel="noopener">@narendraio</a></span>
+    <span>MIT © 2026 Narendra Solanki</span>
+  </div>
+</footer>
 
-    <section class="usage">
-      <h2>Usage</h2>
-<pre><span class="p">$</span> tail -f app.log | dedupe
-<span class="p">$</span> kubectl logs -f deploy/api | dedupe --summary
-<span class="p">$</span> dedupe --no-live --window 10s app.log &gt; quiet.log
-<span class="c"># flags: --window --live-rows --no-live --summary --keep-quotes --color</span></pre>
-    </section>
-  </main>
-
-  <footer>
-    <span>made by <a href="https://github.com/narendraio">Narendra Solanki</a> · part of a tool-a-day series</span>
-    <a href="https://github.com/narendraio/dedupe">github.com/narendraio/dedupe</a>
-  </footer>
-</div>
-
-<script>
-  document.querySelectorAll("[data-copy]").forEach(function (box) {
-    var btn = box.querySelector(".copy");
-    function copy() {
-      var text = box.getAttribute("data-copy");
-      function done() {
-        btn.textContent = "copied";
-        btn.classList.add("done");
-        setTimeout(function () { btn.textContent = "copy"; btn.classList.remove("done"); }, 1600);
-      }
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(done, fallback);
-      } else { fallback(); }
-      function fallback() {
-        var ta = document.createElement("textarea");
-        ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
-        document.body.appendChild(ta); ta.select();
-        try { document.execCommand("copy"); done(); } catch (e) {}
-        document.body.removeChild(ta);
-      }
-    }
-    box.addEventListener("click", copy);
-    box.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); copy(); } });
-  });
-</script>
+<script type="module" src="main.js"></script>
 </body>
 </html>

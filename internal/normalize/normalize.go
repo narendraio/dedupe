@@ -210,7 +210,9 @@ func replaceQuoted(s string) string {
 	for _, l := range locs {
 		start, end := l[0], l[1]
 		if s[start] != '"' && s[start] != '\'' {
-			start++ // the single-quote alternative includes one leading char
+			// the single-quote alternative includes one leading char; skip the whole rune
+			_, w := utf8.DecodeRuneInString(s[start:])
+			start += w
 		}
 		if isKey(s, end) {
 			continue

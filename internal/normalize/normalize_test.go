@@ -3,6 +3,7 @@ package normalize
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestFingerprint(t *testing.T) {
@@ -114,5 +115,15 @@ func BenchmarkFingerprint(b *testing.B) {
 	line := `2024-05-01T12:04:31.123Z ERROR [api] request 3fa85f64-5717-4562-b3fc-2c963f66afa6 from 10.0.0.12:5432 failed after 30012ms: "upstream timeout"`
 	for i := 0; i < b.N; i++ {
 		n.Fingerprint(line)
+	}
+}
+
+func TestQuotedAfterMultibyteRune(t *testing.T) {
+	got := Normalizer{}.Fingerprint("deploy 🚀'v1.2.3' failed")
+	if strings.ContainsRune(got, utf8.RuneError) {
+		t.Fatalf("fingerprint corrupted a multibyte rune: %q", got)
+	}
+	if !strings.Contains(got, "🚀") {
+		t.Fatalf("emoji before quoted value was dropped: %q", got)
 	}
 }

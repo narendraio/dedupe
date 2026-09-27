@@ -1,0 +1,13 @@
+{
+  "name": "dedupe — log deduplication for your terminal",
+  "short_name": "dedupe",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#edede8",
+  "theme_color": "#edede8",
+  "icons": [
+    { "src": "/assets/logo.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/assets/favicon-32.png", "type": "image/png", "sizes": "32x32" },
+    { "src": "/assets/apple-touch-icon.png", "type": "image/png", "sizes": "180x180" }
+  ]
+}
