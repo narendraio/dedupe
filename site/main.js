@@ -1,4 +1,4 @@
-/* dedupe — the manual, and a working copy of the fingerprint engine. */
+/* dedupe — the site, with a working copy of the fingerprint engine. */
 import { analyze, group, quieter, commas } from "./fingerprint.js";
 import { sample, stream } from "./samples.js";
 
@@ -19,11 +19,11 @@ function segsHTML(segs, useFP) {
   }).join("");
 }
 
-/* ═══════════════════════ fig. 01 — the live stream ═══════════════════════ */
+/* ═══════════════════════ hero — the live stream ═══════════════════════ */
 (() => {
-  const fig = $(".hero-fig");
+  const fig = $(".stage");
   if (!fig) return;
-  const box = $(".stream", fig), track = $(".st-in-track", fig), outEl = $(".st-out", fig);
+  const box = $(".stream", fig), barEl = $(".st-bar i", fig), track = $(".st-in-track", fig), outEl = $(".st-out", fig);
   const rateEl = $(".st-rate", fig), groupsEl = $(".st-groups", fig), sumEl = $(".st-sum", fig), qEl = $(".st-q", fig);
   const btn = $(".fig-btn", fig);
 
@@ -42,7 +42,7 @@ function segsHTML(segs, useFP) {
   const display = (line) => line.replace(/^2026-09-27T/, "").replace(/ {2,}/g, " ");
   const levelHTML = (html) => html.replace(/\b(ERROR|FATAL|E0927)\b/, '<span class="lv-e">$1</span>').replace(/\b(WARN|W0927)\b/, '<span class="lv-w">$1</span>');
 
-  function capacity() { return Math.max(4, Math.floor((outEl.clientHeight - 12) / 30)); }
+  function capacity() { return Math.max(4, Math.floor((outEl.clientHeight - 10) / 34)); }
 
   function makeRow(g) {
     const row = document.createElement("div");
@@ -74,7 +74,7 @@ function segsHTML(segs, useFP) {
     const b = box.getBoundingClientRect(), f = fromEl.getBoundingClientRect(), t = toEl.getBoundingClientRect();
     const el = document.createElement("div");
     el.className = "ghost";
-    el.textContent = text.slice(0, 42);
+    el.textContent = text.slice(0, 38);
     box.appendChild(el);
     const x0 = f.left - b.left + 14, y0 = f.top - b.top, x1 = t.left - b.left + 14, y1 = t.top - b.top + 6;
     el.animate(
@@ -130,7 +130,9 @@ function segsHTML(segs, useFP) {
     rateEl.textContent = commas(lines) + " " + plural(lines, "line", "lines");
     groupsEl.textContent = commas(seen) + " " + plural(seen, "group", "groups");
     sumEl.textContent = `${commas(lines)} lines → ${commas(seen)} groups`;
-    qEl.textContent = quieter(lines, seen).toFixed(1) + "% quieter";
+    const q = quieter(lines, seen);
+    qEl.textContent = q.toFixed(1) + "% quieter";
+    barEl.style.width = q + "%";
   }
 
   function agoTick() {
@@ -169,14 +171,33 @@ function segsHTML(segs, useFP) {
   loop();
 })();
 
-/* ═══════════════════════ 02 — try it ═══════════════════════ */
+/* ═══════════════════════ demo — paste your worst log ═══════════════════════ */
 (() => {
   const pad = $("#pad"), out = $(".out"), keep = $("#keepq");
   if (!pad) return;
-  const mLines = $(".m-lines"), mGroups = $(".m-groups"), mQ = $(".m-q"), bar = $(".meter-bar i");
+  const meter = $(".meter"), mLines = $(".m-lines"), mGroups = $(".m-groups"), mQ = $(".m-q"), bar = $(".meter-bar i");
+  const chips = $$(".chips .chip");
   let mode = "live", timer = 0;
 
   const truncate = (s, max) => ([...s].length <= max ? s : [...s].slice(0, max - 1).join("") + "…");
+
+  // count a number up/down to its new value
+  const shown = new Map();
+  function tween(el, to, fmt) {
+    const from = shown.get(el) ?? 0;
+    shown.set(el, to);
+    cancelAnimationFrame(el._raf);
+    if (reduce || from === to) { el.textContent = fmt(to); return; }
+    const t0 = performance.now(), dur = 700;
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmt(from + (to - from) * e);
+      if (k < 1) el._raf = requestAnimationFrame(step);
+    };
+    el._raf = requestAnimationFrame(step);
+  }
+  const whole = (v) => commas(Math.round(v));
+  const pct = (v) => v.toFixed(1);
 
   function readLines() {
     const v = pad.value;
@@ -186,24 +207,25 @@ function segsHTML(segs, useFP) {
     return ls;
   }
 
-  function render() {
+  function render(animate = false) {
     const lines = readLines();
     const groups = group(lines, { keepQuotes: keep.checked });
     const q = quieter(lines.length, groups.length);
-    mLines.textContent = commas(lines.length);
-    mGroups.textContent = commas(groups.length);
-    mQ.textContent = `· ${q.toFixed(1)}% quieter`;
+    tween(mLines, lines.length, whole);
+    tween(mGroups, groups.length, whole);
+    tween(mQ, q, pct);
     bar.style.width = q + "%";
+    if (animate && !reduce) { meter.classList.remove("pop"); void meter.offsetWidth; meter.classList.add("pop"); }
 
-    if (!lines.length) { out.innerHTML = `<p class="empty">paste some log lines on the left, or load a sample.</p>`; return; }
+    if (!lines.length) { out.innerHTML = `<p class="empty">paste some log lines on the left, or pick a sample above.</p>`; return; }
 
     if (mode === "live") {
-      const shown = groups.slice(0, 500);
-      out.innerHTML = shown.map((g) =>
-        `<div class="g" tabindex="0"><span class="cnt${g.count === 1 ? " one" : ""}">×${commas(g.count)}</span>` +
+      const list = groups.slice(0, 500);
+      out.innerHTML = list.map((g, i) =>
+        `<div class="g" tabindex="0" style="animation-delay:${animate ? Math.min(i, 14) * 35 : 0}ms${animate ? "" : ";animation:none"}"><span class="cnt${g.count === 1 ? " one" : ""}">×${commas(g.count)}</span>` +
         `<span class="line">${segsHTML(g.segs, false)}</span>` +
         `<span class="fp">${segsHTML(g.segs, true)}</span></div>`).join("") +
-        (groups.length > shown.length ? `<p class="empty">…and ${commas(groups.length - shown.length)} more groups</p>` : "");
+        (groups.length > list.length ? `<p class="empty">…and ${commas(groups.length - list.length)} more groups</p>` : "");
       return;
     }
 
@@ -244,24 +266,24 @@ function segsHTML(segs, useFP) {
     out.innerHTML = `<pre>${s}</pre>`;
   }
 
-  const schedule = () => { clearTimeout(timer); timer = setTimeout(render, pad.value.length > 200000 ? 250 : 60); };
-  pad.addEventListener("input", () => { $$(".samples [aria-pressed]").forEach((b) => b.setAttribute("aria-pressed", "false")); schedule(); });
-  keep.addEventListener("change", render);
+  const schedule = () => { clearTimeout(timer); timer = setTimeout(() => render(false), pad.value.length > 200000 ? 250 : 60); };
+  pad.addEventListener("input", () => { chips.forEach((b) => b.setAttribute("aria-pressed", "false")); schedule(); });
+  keep.addEventListener("change", () => render(true));
 
-  $$(".samples button").forEach((b) => b.addEventListener("click", () => {
+  chips.forEach((b) => b.addEventListener("click", () => {
     pad.value = b.dataset.sample ? sample(b.dataset.sample, 60) : "";
-    $$(".samples button").forEach((x) => x.setAttribute("aria-pressed", String(x === b && !!b.dataset.sample)));
-    pad.scrollTop = 0; pad.scrollLeft = 0;
-    render();
+    chips.forEach((x) => x.setAttribute("aria-pressed", String(x === b && !!b.dataset.sample)));
+    pad.scrollTop = 0; pad.scrollLeft = 0; out.scrollTop = 0;
+    render(true);
     if (!b.dataset.sample) pad.focus();
   }));
 
-  const tabs = $$(".try-tabs [role=tab]");
+  const tabs = $$(".tabs [role=tab]");
   tabs.forEach((b, i) => {
     b.addEventListener("click", () => {
       mode = b.dataset.mode;
       tabs.forEach((x) => { x.setAttribute("aria-selected", String(x === b)); x.tabIndex = x === b ? 0 : -1; });
-      render();
+      render(true);
     });
     b.addEventListener("keydown", (e) => {
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
@@ -271,18 +293,49 @@ function segsHTML(segs, useFP) {
     b.tabIndex = i === 0 ? 0 : -1;
   });
 
-  // tap to pin a row open on touch screens
+  // tap / Enter to pin a row open (touch screens, keyboards)
   out.addEventListener("click", (e) => {
     const g = e.target.closest(".g");
     if (g) g.classList.toggle("is-open");
   });
+  out.addEventListener("keydown", (e) => {
+    const g = e.target.closest(".g");
+    if (g && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); g.classList.toggle("is-open"); }
+  });
 
   pad.value = sample("k8s", 60);
-  render();
+  // count up the first time the demo scrolls into view
+  let first = true;
+  render(false);
+  new IntersectionObserver(([e], io) => {
+    if (!e.isIntersecting || !first) return;
+    first = false; io.disconnect();
+    shown.clear();
+    render(true);
+  }, { threshold: 0.25 }).observe(meter);
+})();
+
+/* ═══════════════════════ install tabs ═══════════════════════ */
+(() => {
+  const tabs = $$(".itabs [role=tab]");
+  tabs.forEach((b, i) => {
+    const select = () => tabs.forEach((x) => {
+      const on = x === b;
+      x.setAttribute("aria-selected", String(on));
+      x.tabIndex = on ? 0 : -1;
+      $("#" + x.getAttribute("aria-controls")).hidden = !on;
+    });
+    b.addEventListener("click", select);
+    b.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      const n = tabs[(i + 1) % tabs.length];
+      n.focus(); n.click();
+    });
+  });
 })();
 
 /* ═══════════════════════ copy ═══════════════════════ */
-$$(".copy-cmd").forEach((b) => b.addEventListener("click", async () => {
+$$(".copy").forEach((b) => b.addEventListener("click", async () => {
   const text = $(".copy-src", b.parentElement).textContent.trim();
   try { await navigator.clipboard.writeText(text); }
   catch {
@@ -293,20 +346,44 @@ $$(".copy-cmd").forEach((b) => b.addEventListener("click", async () => {
   }
   b.textContent = "copied ✓";
   b.classList.add("done");
-  setTimeout(() => { b.textContent = "copy"; b.classList.remove("done"); }, 1600);
+  clearTimeout(b._t);
+  b._t = setTimeout(() => { b.textContent = "copy"; b.classList.remove("done"); }, 1600);
 }));
 
-/* ═══════════════════════ footer: a counter that won't stop ═══════════════════════ */
+/* ═══════════════════════ small things that move ═══════════════════════ */
+// top bar hairline once scrolled
 (() => {
-  const n = $(".fb-n");
-  if (!n) return;
+  const bar = $(".bar");
+  const on = () => bar.classList.toggle("scrolled", scrollY > 8);
+  addEventListener("scroll", on, { passive: true });
+  on();
+})();
+
+// scroll reveal
+(() => {
+  const els = $$(".reveal");
+  if (reduce || !("IntersectionObserver" in window)) { els.forEach((e) => e.classList.add("in")); return; }
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+  }), { rootMargin: "0px 0px -8% 0px" });
+  els.forEach((e) => io.observe(e));
+})();
+
+// counters that won't stop: the tile badge and the footer wordmark
+function runaway(el, target, loop) {
+  if (!el) return;
+  if (reduce) { el.textContent = commas(target); return; }
   let v = 1, on = false, t = 0;
+  const box = el.closest(".cnt");
   const step = () => {
     if (!on) return;
-    v += v < 248 ? Math.ceil((248 - v) / 14) : 1;
-    n.textContent = commas(v);
-    t = setTimeout(step, v < 248 ? 40 : 900);
+    v += v < target ? Math.ceil((target - v) / 14) : 1;
+    if (loop && v > target + 6) v = 1;
+    el.textContent = commas(v);
+    if (box && v >= target) { box.classList.remove("bump"); void box.offsetWidth; box.classList.add("bump"); }
+    t = setTimeout(step, v < target ? 40 : 900);
   };
-  if (reduce) { n.textContent = "248"; return; }
-  new IntersectionObserver(([e]) => { on = e.isIntersecting; clearTimeout(t); if (on) step(); }).observe(n);
-})();
+  new IntersectionObserver(([e]) => { on = e.isIntersecting; clearTimeout(t); if (on) step(); }).observe(el);
+}
+runaway($(".ill-count b[data-to]"), 248, true);
+runaway($(".fb-n"), 248, false);
